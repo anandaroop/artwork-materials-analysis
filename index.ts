@@ -1,5 +1,5 @@
 import ArtworkMaterialsNgramAnalyzer from "./lib/artwork-materials-ngram-analyzer";
-import { writeFile } from "fs";
+import { createObjectCsvWriter } from "csv-writer";
 import { NgramFrequency } from "./types";
 import * as chalk from "chalk";
 
@@ -36,19 +36,19 @@ CATEGORIES_TO_CONSIDER.map(async (category) => {
     const path = getPathPrefix(category);
 
     const unigrams = analyzer.getTopUnigrams();
-    writeCSV(unigrams, `${path}-1grams.csv`);
+    writeCSV(unigrams, `${path}-1grams.csv`, { length: 1, category });
     displaySummary(unigrams);
 
     const bigrams = analyzer.getTopBigrams();
-    writeCSV(bigrams, `${path}-2grams.csv`);
+    writeCSV(bigrams, `${path}-2grams.csv`, { length: 2, category });
     displaySummary(bigrams);
 
     const trigrams = analyzer.getTopTrigrams();
-    writeCSV(trigrams, `${path}-3grams.csv`);
+    writeCSV(trigrams, `${path}-3grams.csv`, { length: 3, category });
     displaySummary(trigrams);
 
     const tetragrams = analyzer.getTopTetragrams();
-    writeCSV(tetragrams, `${path}-4grams.csv`);
+    writeCSV(tetragrams, `${path}-4grams.csv`, { length: 4, category });
     displaySummary(tetragrams);
 
     // const topNgrams = analyzer.getTopNgrams(1, 0.8);
@@ -63,18 +63,26 @@ const getPathPrefix = (category) => {
   return `out/${firstWord}`;
 };
 
-const writeCSV = (data: NgramFrequency[], path: string) => {
-  const createCsvWriter = require("csv-writer").createObjectCsvWriter;
-  const csvWriter = createCsvWriter({
+const writeCSV = (
+  data: NgramFrequency[],
+  path: string,
+  extras: Record<string, unknown>
+) => {
+  const extraHeaders = Object.keys(extras).map((k) => ({ id: k, title: k }));
+
+  const csvWriter = createObjectCsvWriter({
     path,
     header: [
+      ...extraHeaders,
       { id: "ngram", title: "ngram" },
       { id: "frequency", title: "frequency" },
     ],
   });
 
+  const dataWithExtras = data.map((row) => ({ ...extras, ...row }));
+
   csvWriter
-    .writeRecords(data)
+    .writeRecords(dataWithExtras)
     .then(() => console.log(chalk.magenta(`Wrote ${path}`)));
 };
 
