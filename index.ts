@@ -1,7 +1,8 @@
 import ArtworkMaterialsNgramAnalyzer from "./lib/artwork-materials-ngram-analyzer";
 import { createObjectCsvWriter } from "csv-writer";
-import { NgramFrequency } from "./types";
+import { NgramFrequency, NgramWithAatMatch } from "./types";
 import * as chalk from "chalk";
+import { matchNgramsToAatSubjects } from "./lib/aat";
 
 const CATEGORIES_TO_CONSIDER = [
   /* consider all artworks, across categories */
@@ -36,19 +37,23 @@ CATEGORIES_TO_CONSIDER.map(async (category) => {
     const path = getPathPrefix(category);
 
     const unigrams = analyzer.getTopUnigrams();
-    writeCSV(unigrams, `${path}-1grams.csv`, { length: 1, category });
+    const unigramsWithAat = await matchNgramsToAatSubjects(unigrams);
+    writeCSV(unigramsWithAat, `${path}-1grams.csv`, { length: 1, category });
     displaySummary(unigrams);
 
     const bigrams = analyzer.getTopBigrams();
-    writeCSV(bigrams, `${path}-2grams.csv`, { length: 2, category });
+    const bigramsWithAat = await matchNgramsToAatSubjects(bigrams);
+    writeCSV(bigramsWithAat, `${path}-2grams.csv`, { length: 2, category });
     displaySummary(bigrams);
 
     const trigrams = analyzer.getTopTrigrams();
-    writeCSV(trigrams, `${path}-3grams.csv`, { length: 3, category });
+    const trigramsWithAat = await matchNgramsToAatSubjects(trigrams);
+    writeCSV(trigramsWithAat, `${path}-3grams.csv`, { length: 3, category });
     displaySummary(trigrams);
 
     const tetragrams = analyzer.getTopTetragrams();
-    writeCSV(tetragrams, `${path}-4grams.csv`, { length: 4, category });
+    const tetragramsWithAat = await matchNgramsToAatSubjects(tetragrams);
+    writeCSV(tetragramsWithAat, `${path}-4grams.csv`, { length: 4, category });
     displaySummary(tetragrams);
 
     // const topNgrams = analyzer.getTopNgrams(1, 0.8);
@@ -64,7 +69,7 @@ const getPathPrefix = (category) => {
 };
 
 const writeCSV = (
-  data: NgramFrequency[],
+  data: NgramWithAatMatch[],
   path: string,
   extras: Record<string, unknown>
 ) => {
@@ -76,10 +81,15 @@ const writeCSV = (
       ...extraHeaders,
       { id: "ngram", title: "ngram" },
       { id: "frequency", title: "frequency" },
+      { id: "aatId", title: "aat_id" },
+      { id: "aatName", title: "aat_name" },
+      { id: "facetName", title: "facet_name" },
+      { id: "recordType", title: "record_type" },
+      { id: "matchQuality", title: "match_quality" },
     ],
   });
 
-  const dataWithExtras = data.map((row) => ({ ...extras, ...row }));
+  const dataWithExtras = data.map(([ngram, aat]) => ({ ...extras, ...ngram, ...aat }));
 
   csvWriter
     .writeRecords(dataWithExtras)
