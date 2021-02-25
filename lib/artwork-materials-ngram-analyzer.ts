@@ -3,8 +3,9 @@ import { parse } from "ndjson";
 import { Artwork, Document, NGram, NgramFrequency, NgramTally } from "../types";
 import { NGrams, PorterStemmer, WordTokenizer } from "natural";
 import { exec } from "child_process";
-import { toPairs, sortBy, reverse, takeWhile, sumBy } from "lodash";
+import { toPairs, sortBy, reverse } from "lodash";
 import * as chalk from "chalk";
+import * as _ from "lodash";
 
 interface Options {
   /** Path to a newline-delimited JSON file containing artwork documents */
@@ -52,6 +53,7 @@ class ArtworkMaterialsNgramAnalyzer {
   private shouldStem: boolean;
   private tokenizer = new WordTokenizer();
   private tokenizedDocuments: string[][] = [];
+  public numDocuments: number;
 
   /**
    * Static factory method to instantiate and return an analyzer that is ready to use
@@ -108,6 +110,7 @@ class ArtworkMaterialsNgramAnalyzer {
 
           // when done reading data, resolve the promise
           .on("end", () => {
+            this.numDocuments = this.tokenizedDocuments.length;
             resolve(this);
           });
       } catch (error) {
@@ -117,50 +120,46 @@ class ArtworkMaterialsNgramAnalyzer {
   };
 
   /** Convenience method to get top 1-grams */
-  getTopUnigrams = (threshold?: number): NgramFrequency[] => {
-    return this.getTopNgrams(1, threshold ?? 0.8);
+  getTopUnigrams = (minFrequency?: number): NgramFrequency[] => {
+    return this.getTopNgrams(1, minFrequency ?? 0);
   };
 
   /** Convenience method to get top 2-grams */
-  getTopBigrams = (threshold?: number): NgramFrequency[] => {
-    return this.getTopNgrams(2, threshold ?? 0.6);
+  getTopBigrams = (minFrequency?: number): NgramFrequency[] => {
+    return this.getTopNgrams(2, minFrequency ?? 0);
   };
 
   /** Convenience method to get top 3-grams */
-  getTopTrigrams = (threshold?: number): NgramFrequency[] => {
-    return this.getTopNgrams(3, threshold ?? 0.4);
+  getTopTrigrams = (minFrequency?: number): NgramFrequency[] => {
+    return this.getTopNgrams(3, minFrequency ?? 0);
   };
 
   /** Convenience method to get top 4-grams */
-  getTopTetragrams = (threshold?: number): NgramFrequency[] => {
-    return this.getTopNgrams(4, threshold ?? 0.2);
+  getTopTetragrams = (minFrequency?: number): NgramFrequency[] => {
+    return this.getTopNgrams(4, minFrequency ?? 0);
   };
 
   /**
-   * Get the top n-grams, accounting for some percentage of all occurences.
+   * Get the top n-grams that occur more often than some threshold
    *
-   * Example: To find enough bigrams to account for 80% of all occurences:
+   * Example: To find all bigrams that are present 100 or times in the corpus
    *
    * ```javascript
-   * analyzer.getTopNgrams(2, 0.8)
+   * analyzer.getTopNgrams(2, 100)
    * ```
    *
    * @param {number} n How many words should each n-gram consist of?
-   * @param {number} threshold What proportion of all occurences should be accounted for by these n-grams?
+   * @param {number} minFrequency How many times does this n-gram need to occur?
    */
-  getTopNgrams = (n: number, threshold: number): NgramFrequency[] => {
-    const thresholdPct = 100 * threshold;
+  getTopNgrams = (n: number, minFrequency: number): NgramFrequency[] => {
     console.log(
       chalk.bold(
-        `\nSeeking top n-grams of ${chalk.bgHsl(
-          60,
-          100,
-          80
-        )(`length ${n}`)}, covering ${thresholdPct}% of ${chalk.bgHsl(
-          60,
-          100,
-          80
-        )(this.category || "all")} occurrences`
+        [
+          `\nSeeking n-grams`,
+          `of ${highlight(`length ${n}`)}`,
+          `in ${highlight(this.category || "all")} occurrences`,
+          `occurring ${highlight(minFrequency)} or more times`,
+        ].join(" ")
       )
     );
 
@@ -177,42 +176,9 @@ class ArtworkMaterialsNgramAnalyzer {
     console.log(chalk.gray(`Found ${uniqueNgramCount} unique n-grams`));
 
     const sortedNgramFrequencies = this.getSortedNgramFrequencies(tally);
-    const desiredTotalFrequency = Math.trunc(threshold * totalNgramCount);
-    console.log(
-      chalk.gray(
-        `Seeking enough unique n-grams to cover ${desiredTotalFrequency} occurences`
-      )
-    );
-
-    let frequencySoFar = 0;
-    const topNgramFrequencies = takeWhile(
-      sortedNgramFrequencies,
-      ({ frequency }) => {
-        if (frequencySoFar > desiredTotalFrequency) return false;
-        frequencySoFar += frequency;
-        return true;
-      }
-    );
+    const topNgramFrequencies = sortedNgramFrequencies.filter(nf => nf.frequency >= minFrequency)
     const topNgramCount = topNgramFrequencies.length;
-    const frequencyOfTopNgrams = sumBy(topNgramFrequencies, "frequency");
-    const proportionOfNgrams = (
-      (100 * topNgramCount) /
-      uniqueNgramCount
-    ).toFixed(2);
-    const proportionOfOccurences = Math.round(
-      (100 * frequencyOfTopNgrams) / totalNgramCount
-    ).toFixed(2);
-
-    console.log(
-      chalk.gray(
-        `Found the top ${topNgramCount} n-grams covering ${frequencyOfTopNgrams} occurences`
-      )
-    );
-    console.log(
-      chalk.green(
-        `${proportionOfNgrams}% of n-grams account for ${proportionOfOccurences}% of all occurences`
-      )
-    );
+    console.log(chalk.gray(`Returning the ${topNgramCount} n-grams with a frequency >${minFrequency}`));
 
     return topNgramFrequencies;
   };
@@ -278,5 +244,7 @@ class ArtworkMaterialsNgramAnalyzer {
     return tokens;
   };
 }
+
+const highlight = chalk.bgHsl(60, 100, 80);
 
 export default ArtworkMaterialsNgramAnalyzer;

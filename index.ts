@@ -9,11 +9,25 @@ const CATEGORIES_TO_CONSIDER = [
   null,
 
   /* consider specific categories too */
-  "Painting",
-  "Photography",
-  "Print",
-  "Sculpture",
-  "Drawing, Collage or other Work on Paper",
+  "Painting", // n = 356,574
+  "Photography", // n = 201,005
+  "Print", // n = 114,750
+  "Sculpture", // n = 113,776
+  "Drawing, Collage or other Work on Paper", // n = 107,768
+  "Mixed Media", // n = 35,342
+  "Design/Decorative Art", // n = 17,607
+  "Installation", // n = 9,850
+  "Textile Arts", // n = 7,118
+  "Video/Film/Animation", // n = 3,930
+  "Other", // n = 3,798
+  "Ephemera or Merchandise", // n = 2,766
+  "Jewelry", // n = 1,966
+  "Books and Portfolios", // n = 1,484
+  "Reproduction", // n = 1,425
+  "Posters", // n = 1,274
+  // "Fashion Design and Wearable Art", // n = 685
+  // "Performance Art", // n = 169
+  // "Architecture", // n = 107
 ];
 
 CATEGORIES_TO_CONSIDER.map(async (category) => {
@@ -36,22 +50,26 @@ CATEGORIES_TO_CONSIDER.map(async (category) => {
 
     const path = getPathPrefix(category);
 
-    const unigrams = analyzer.getTopUnigrams();
+    // e.g. ngram must appear in ~1% of all documents minimum
+    // const minFrequency = Math.round(0.01 * analyzer.numDocuments)
+    const minFrequency = Math.round(0.01 * analyzer.numDocuments)
+
+    const unigrams = analyzer.getTopUnigrams(minFrequency);
     const unigramsWithAat = await matchNgramsToAatSubjects(unigrams);
     writeCSV(unigramsWithAat, `${path}-1grams.csv`, { length: 1, category });
     displaySummary(unigrams);
 
-    const bigrams = analyzer.getTopBigrams();
+    const bigrams = analyzer.getTopBigrams(minFrequency);
     const bigramsWithAat = await matchNgramsToAatSubjects(bigrams);
     writeCSV(bigramsWithAat, `${path}-2grams.csv`, { length: 2, category });
     displaySummary(bigrams);
 
-    const trigrams = analyzer.getTopTrigrams();
+    const trigrams = analyzer.getTopTrigrams(minFrequency);
     const trigramsWithAat = await matchNgramsToAatSubjects(trigrams);
     writeCSV(trigramsWithAat, `${path}-3grams.csv`, { length: 3, category });
     displaySummary(trigrams);
 
-    const tetragrams = analyzer.getTopTetragrams();
+    const tetragrams = analyzer.getTopTetragrams(minFrequency);
     const tetragramsWithAat = await matchNgramsToAatSubjects(tetragrams);
     writeCSV(tetragramsWithAat, `${path}-4grams.csv`, { length: 4, category });
     displaySummary(tetragrams);
